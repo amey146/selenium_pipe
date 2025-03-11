@@ -1,0 +1,72 @@
+pipeline {
+    agent any
+
+    environment {
+        VENV_DIR = "venv"
+    }
+
+    stages {
+        stage('Clone Repository') {
+            steps {
+                git 'https://github.com/YOUR_USERNAME/YOUR_REPO.git'
+            }
+        }
+
+        stage('Setup Python Environment') {
+            steps {
+                sh '''
+                    python3 -m venv $VENV_DIR
+                    source $VENV_DIR/bin/activate
+                    pip install -r requirements.txt
+                '''
+            }
+        }
+
+        stage('Run Unit Tests') {
+            steps {
+                sh '''
+                    source $VENV_DIR/bin/activate
+                    pytest --html=unit_test_report.html
+                '''
+            }
+            post {
+                always {
+                    publishHTML (target: [
+                        reportDir: '.',
+                        reportFiles: 'unit_test_report.html',
+                        reportName: "Unit Test Report"
+                    ])
+                }
+            }
+        }
+
+        stage('Run Selenium Tests') {
+            steps {
+                sh '''
+                    source $VENV_DIR/bin/activate
+                    python app.py &  
+                    sleep 5  
+                    pytest tests/test_selenium.py --html=selenium_test_report.html
+                '''
+            }
+            post {
+                always {
+                    publishHTML (target: [
+                        reportDir: '.',
+                        reportFiles: 'selenium_test_report.html',
+                        reportName: "Selenium Test Report"
+                    ])
+                }
+            }
+        }
+
+        stage('Deploy Flask App') {
+            steps {
+                sh '''
+                    source $VENV_DIR/bin/activate
+                    nohup python app.py &
+                '''
+            }
+        }
+    }
+}
